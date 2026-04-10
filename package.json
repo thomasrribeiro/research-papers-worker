@@ -1,0 +1,18 @@
+{
+  "name": "research-papers-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker backend for research papers discovery engine",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy --env production",
+    "tail": "wrangler tail",
+    "db:migrate:local": "wrangler d1 execute research-papers-db --local --file=migrations/0001_initial_schema.sql",
+    "db:migrate:remote": "wrangler d1 execute research-papers-db --file=migrations/0001_initial_schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.47.0"
+  }
+}
