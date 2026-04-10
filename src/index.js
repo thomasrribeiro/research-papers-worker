@@ -11,7 +11,8 @@ import {
     handleSearch,
     handleGetTrends,
     handleGetCategories,
-    handleGetStats
+    handleGetStats,
+    handleGetLeaderboard
 } from './api-read.js';
 import {
     validatePipelineKey,
@@ -19,6 +20,7 @@ import {
     handleIngestSummaries,
     handleIngestMetrics,
     handleIngestDigest,
+    handleIngestLeaderboard,
     handlePipelineStatus
 } from './api-write.js';
 
@@ -67,6 +69,10 @@ export default {
                 return withCors(await handleGetStats(env), request, env);
             }
 
+            if (url.pathname === '/api/leaderboard' && request.method === 'GET') {
+                return withCors(await handleGetLeaderboard(request, env), request, env);
+            }
+
             // --- Write endpoints (pipeline only) ---
 
             if (url.pathname.startsWith('/api/ingest/') || url.pathname === '/api/pipeline/status') {
@@ -84,6 +90,9 @@ export default {
                 }
                 if (url.pathname === '/api/ingest/digest' && request.method === 'POST') {
                     return withCors(await handleIngestDigest(request, env), request, env);
+                }
+                if (url.pathname === '/api/ingest/leaderboard' && request.method === 'POST') {
+                    return withCors(await handleIngestLeaderboard(request, env), request, env);
                 }
                 if (url.pathname === '/api/pipeline/status' && request.method === 'POST') {
                     return withCors(await handlePipelineStatus(request, env), request, env);

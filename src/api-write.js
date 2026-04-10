@@ -28,8 +28,12 @@ export async function handleIngestPapers(request, env) {
                 updated_date, categories, primary_category, pdf_url, source)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                abstract = excluded.abstract,
+                authors = excluded.authors,
                 updated_date = excluded.updated_date,
-                categories = excluded.categories
+                categories = excluded.categories,
+                primary_category = excluded.primary_category
         `).bind(
             p.id, p.arxiv_id || p.id, p.doi || null,
             p.title, p.abstract,
@@ -146,6 +150,29 @@ export async function handleIngestDigest(request, env) {
     }
 
     return jsonResponse({ date, inserted });
+}
+
+/** POST /api/ingest/leaderboard — create leaderboard snapshot */
+export async function handleIngestLeaderboard(request, env) {
+    const { snapshot_date, entries } = await request.json();
+    // entries: [{paper_id, rank, citation_count}]
+    if (!snapshot_date || !Array.isArray(entries)) {
+        return jsonResponse({ error: 'Missing snapshot_date or entries' }, 400);
+    }
+
+    // Clear existing snapshot for this date
+    await env.DB.prepare('DELETE FROM leaderboard_rankings WHERE snapshot_date = ?').bind(snapshot_date).run();
+
+    let inserted = 0;
+    for (const e of entries) {
+        await env.DB.prepare(`
+            INSERT INTO leaderboard_rankings (snapshot_date, paper_id, rank, citation_count)
+            VALUES (?, ?, ?, ?)
+        `).bind(snapshot_date, e.paper_id, e.rank, e.citation_count || 0).run();
+        inserted++;
+    }
+
+    return jsonResponse({ snapshot_date, inserted });
 }
 
 /** POST /api/pipeline/status — log pipeline run */
