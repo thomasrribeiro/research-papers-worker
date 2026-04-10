@@ -67,14 +67,6 @@ export default {
                 return withCors(await handleGetStats(env), request, env);
             }
 
-            // --- Trigger endpoint (requires X-Pipeline-Key) ---
-
-            if (url.pathname === '/api/trigger' && request.method === 'POST') {
-                const authError = validatePipelineKey(request, env);
-                if (authError) return withCors(authError, request, env);
-                return withCors(await handleTrigger(env), request, env);
-            }
-
             // --- Write endpoints (pipeline only) ---
 
             if (url.pathname.startsWith('/api/ingest/') || url.pathname === '/api/pipeline/status') {
@@ -115,41 +107,6 @@ export default {
         }
     }
 };
-
-async function handleTrigger(env) {
-    if (!env.GITHUB_TOKEN) {
-        return new Response(JSON.stringify({ error: 'GITHUB_TOKEN not configured' }), {
-            status: 503, headers: { 'Content-Type': 'application/json' }
-        });
-    }
-
-    const resp = await fetch(
-        'https://api.github.com/repos/thomasrribeiro/research-papers/actions/workflows/pipeline.yml/dispatches',
-        {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github+json',
-                'X-GitHub-Api-Version': '2022-11-28',
-                'Content-Type': 'application/json',
-                'User-Agent': 'research-papers-worker'
-            },
-            body: JSON.stringify({ ref: 'master' })
-        }
-    );
-
-    // GitHub returns 204 No Content on success
-    if (resp.status === 204) {
-        return new Response(JSON.stringify({ ok: true, message: 'Pipeline triggered' }), {
-            status: 200, headers: { 'Content-Type': 'application/json' }
-        });
-    }
-
-    const body = await resp.text();
-    return new Response(JSON.stringify({ error: `GitHub API error ${resp.status}`, detail: body }), {
-        status: 502, headers: { 'Content-Type': 'application/json' }
-    });
-}
 
 function withCors(response, request, env) {
     const headers = corsHeaders(request, env);
