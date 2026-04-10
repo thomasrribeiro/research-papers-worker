@@ -152,27 +152,36 @@ export async function handleIngestDigest(request, env) {
     return jsonResponse({ date, inserted });
 }
 
-/** POST /api/ingest/leaderboard — create leaderboard snapshot */
+/** POST /api/ingest/leaderboard — create leaderboard snapshot for a given list_type */
 export async function handleIngestLeaderboard(request, env) {
-    const { snapshot_date, entries } = await request.json();
-    // entries: [{paper_id, rank, citation_count}]
-    if (!snapshot_date || !Array.isArray(entries)) {
-        return jsonResponse({ error: 'Missing snapshot_date or entries' }, 400);
+    const { snapshot_date, list_type, entries } = await request.json();
+    // entries: [{paper_id, rank, citation_count, score}]
+    if (!snapshot_date || !list_type || !Array.isArray(entries)) {
+        return jsonResponse({ error: 'Missing snapshot_date, list_type, or entries' }, 400);
     }
 
-    // Clear existing snapshot for this date
-    await env.DB.prepare('DELETE FROM leaderboard_rankings WHERE snapshot_date = ?').bind(snapshot_date).run();
+    // Clear existing snapshot for this date + list_type
+    await env.DB.prepare(
+        'DELETE FROM leaderboard_rankings WHERE snapshot_date = ? AND list_type = ?'
+    ).bind(snapshot_date, list_type).run();
 
     let inserted = 0;
     for (const e of entries) {
         await env.DB.prepare(`
-            INSERT INTO leaderboard_rankings (snapshot_date, paper_id, rank, citation_count)
-            VALUES (?, ?, ?, ?)
-        `).bind(snapshot_date, e.paper_id, e.rank, e.citation_count || 0).run();
+            INSERT INTO leaderboard_rankings (snapshot_date, list_type, paper_id, rank, citation_count, score)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(
+            snapshot_date,
+            list_type,
+            e.paper_id,
+            e.rank,
+            e.citation_count || 0,
+            e.score || null
+        ).run();
         inserted++;
     }
 
-    return jsonResponse({ snapshot_date, inserted });
+    return jsonResponse({ snapshot_date, list_type, inserted });
 }
 
 /** POST /api/pipeline/status — log pipeline run */

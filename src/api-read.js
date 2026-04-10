@@ -204,29 +204,38 @@ export async function handleGetTrends(request, env) {
     });
 }
 
-/** GET /api/leaderboard?limit=50 */
+/** GET /api/leaderboard?type=foundations|momentum&limit=50 */
 export async function handleGetLeaderboard(request, env) {
     const url = new URL(request.url);
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
+    const listType = url.searchParams.get('type') === 'momentum' ? 'momentum' : 'foundations';
 
     const result = await env.DB.prepare(`
         SELECT
             p.id, p.arxiv_id, p.title, p.authors, p.published_date,
             p.categories, p.primary_category, p.pdf_url,
-            m.citation_count, m.citation_velocity, m.altmetric_score,
+            lr.citation_count, m.citation_velocity, m.altmetric_score,
             m.composite_score, m.factor_breakdown, m.fields_of_study,
             s.tldr, s.so_what, s.tags, s.difficulty,
-            lr.rank
+            lr.rank, lr.score
         FROM leaderboard_rankings lr
         JOIN papers p ON lr.paper_id = p.id
         LEFT JOIN metrics m ON m.paper_id = p.id
         LEFT JOIN summaries s ON s.paper_id = p.id
-        WHERE lr.snapshot_date = (SELECT MAX(snapshot_date) FROM leaderboard_rankings)
+        WHERE lr.list_type = ?
+          AND lr.snapshot_date = (
+              SELECT MAX(snapshot_date) FROM leaderboard_rankings WHERE list_type = ?
+          )
         ORDER BY lr.rank ASC
         LIMIT ?
-    `).bind(limit).all();
+    `).bind(listType, listType, limit).all();
 
-    return jsonResponse({ papers: result.results.map(parsePaperRow) });
+    const papers = result.results.map(row => ({
+        ...parsePaperRow(row),
+        score: row.score
+    }));
+
+    return jsonResponse({ papers, list_type: listType });
 }
 
 /** GET /api/categories */
